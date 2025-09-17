@@ -28,6 +28,7 @@ class SymbolValidationError(TVKitError):
         suggestions = [
             f"Check symbol format: '{symbol}' should be like 'EXCHANGE:SYMBOL'",
             "Popular examples: 'NASDAQ:AAPL', 'BINANCE:BTCUSDT', 'FX_IDC:EURUSD'",
+            "Breadth indicators: 'INDEX-NDTH', 'INDEX-NDFI', 'INDEX-NDTW'",
             "Use tvkit.POPULAR_STOCKS or tvkit.MAJOR_CRYPTOS for valid symbols",
             "Search TradingView.com to find the correct symbol format",
         ]
@@ -78,7 +79,7 @@ def validate_symbol_format(symbol: str) -> bool:
     Validate that a symbol follows the expected format.
 
     Args:
-        symbol: Trading symbol to validate
+        symbol: Trading symbol to validate (EXCHANGE:SYMBOL format or breadth indicators)
 
     Returns:
         True if valid format
@@ -86,12 +87,23 @@ def validate_symbol_format(symbol: str) -> bool:
     Raises:
         SymbolValidationError: If symbol format is invalid
     """
+    # Nasdaq 100 breadth indicators use hyphenated format instead of EXCHANGE:SYMBOL
+    SUPPORTED_BREADTH_INDICATORS = {
+        'INDEX-NDTH',  # Nasdaq 100 Stocks Above 200-Day Average
+        'INDEX-NDFI',  # Nasdaq 100 Stocks Above 50-Day Average
+        'INDEX-NDTW',  # Nasdaq 100 Stocks Above 20-Day Average
+    }
+    
     if not symbol or not isinstance(symbol, str):
         raise SymbolValidationError(symbol, "Symbol must be a non-empty string")
 
+    # Check if this is a supported breadth indicator first
+    if symbol in SUPPORTED_BREADTH_INDICATORS:
+        return True
+
     if ":" not in symbol:
         raise SymbolValidationError(
-            symbol, f"Symbol '{symbol}' missing exchange prefix"
+            symbol, f"Symbol '{symbol}' missing exchange prefix. Must be 'EXCHANGE:SYMBOL' format or a supported breadth indicator (INDEX-NDTH, INDEX-NDFI, INDEX-NDTW)"
         )
 
     parts = symbol.split(":")

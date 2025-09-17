@@ -203,7 +203,8 @@ class OHLCV:
         This method fetches historical OHLCV data from TradingView and returns it as a list of OHLCVBar objects.
 
         Args:
-            exchange_symbol: The symbol in the format 'EXCHANGE:SYMBOL' (e.g., 'BINANCE:BTCUSDT').
+            exchange_symbol: The symbol in the format 'EXCHANGE:SYMBOL' (e.g., 'BINANCE:BTCUSDT')
+                            or breadth indicators (e.g., 'INDEX-NDTH', 'INDEX-NDFI', 'INDEX-NDTW').
             interval: The interval for the chart (default is "1" for 1 minute).
             bars_count: The number of bars to fetch (default is 10).
 

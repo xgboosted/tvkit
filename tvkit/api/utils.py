@@ -114,13 +114,15 @@ async def validate_symbols(exchange_symbol: Union[str, List[str]]) -> bool:
 
     This function checks whether the provided symbol or list of symbols follows
     the expected format ("EXCHANGE:SYMBOL") and validates each symbol by making a
-    request to a TradingView validation URL.
+    request to a TradingView validation URL. It also supports special INDEX breadth
+    indicators that use hyphenated format (INDEX-NDTH, INDEX-NDFI, INDEX-NDTW).
 
     Args:
-        exchange_symbol: A single symbol or a list of symbols in the format "EXCHANGE:SYMBOL".
+        exchange_symbol: A single symbol or a list of symbols in the format "EXCHANGE:SYMBOL" 
+                        or special breadth indicators like "INDEX-NDTH".
 
     Raises:
-        ValueError: If exchange_symbol is empty, if a symbol does not follow the "EXCHANGE:SYMBOL" format,
+        ValueError: If exchange_symbol is empty, if a symbol does not follow the expected format,
                     or if the symbol fails validation after the allowed number of retries.
         httpx.HTTPError: If there's an HTTP-related error during validation.
 
@@ -132,11 +134,20 @@ async def validate_symbols(exchange_symbol: Union[str, List[str]]) -> bool:
         True
         >>> await validate_symbols(["BINANCE:BTCUSDT", "NASDAQ:AAPL"])
         True
+        >>> await validate_symbols("INDEX-NDTH")  # Nasdaq 100 breadth indicator
+        True
     """
     validate_url: str = (
         "https://scanner.tradingview.com/symbol?"
         "symbol={exchange}%3A{symbol}&fields=market&no_404=false"
     )
+
+    # Nasdaq 100 breadth indicators - these use hyphenated format instead of EXCHANGE:SYMBOL
+    SUPPORTED_BREADTH_INDICATORS = {
+        'INDEX-NDTH',  # Nasdaq 100 Stocks Above 200-Day Average
+        'INDEX-NDFI',  # Nasdaq 100 Stocks Above 50-Day Average
+        'INDEX-NDTW',  # Nasdaq 100 Stocks Above 20-Day Average
+    }
 
     if not exchange_symbol:
         raise ValueError("exchange_symbol cannot be empty")
@@ -147,12 +158,25 @@ async def validate_symbols(exchange_symbol: Union[str, List[str]]) -> bool:
     else:
         symbols = exchange_symbol
 
+    # Separate breadth indicators from regular symbols  
+    breadth_symbols = [s for s in symbols if s in SUPPORTED_BREADTH_INDICATORS]
+    regular_symbols = [s for s in symbols if s not in SUPPORTED_BREADTH_INDICATORS]
+
+    # Log breadth indicators that are recognized
+    for breadth_symbol in breadth_symbols:
+        logging.info(f"Recognized breadth indicator: {breadth_symbol}")
+
+    # If we have no regular symbols to validate, we're done
+    if not regular_symbols:
+        return True
+
+    # Only create HTTP client if we have regular symbols to validate
     async with httpx.AsyncClient(timeout=5.0) as client:
-        for item in symbols:
+        for item in regular_symbols:
             parts: List[str] = item.split(":")
             if len(parts) != 2:
                 raise ValueError(
-                    f"Invalid symbol format '{item}'. Must be like 'BINANCE:BTCUSDT'"
+                    f"Invalid symbol format '{item}'. Must be like 'BINANCE:BTCUSDT' or a supported breadth indicator (INDEX-NDTH, INDEX-NDFI, INDEX-NDTW)"
                 )
 
             exchange: str
